@@ -3,15 +3,13 @@ source ~/autoware/install/setup.bash
 
 ////////////////開aw的///////////////////////
 
+source /opt/ros/humble/setup.bash
+source ~/autoware/install/setup.bash
+
 ros2 launch autoware_launch planning_simulator.launch.xml \
-  map_path:=$HOME/autoware_map/nishishinjuku_autoware_map \
-  data_path:=$HOME/autoware_data \
+  map_path:=$HOME/autoware_map/Shinjuku-Map/map \
   vehicle_model:=sample_vehicle \
-  sensor_model:=sample_sensor_kit \
-  vehicle_simulation:=true \
-  rviz:=true \
-  scenario_simulation:=false \
-  is_simulation:=false
+  sensor_model:=sample_sensor_kit
 
 
 ////////////////////////////////////////////////
