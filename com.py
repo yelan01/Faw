@@ -35,10 +35,14 @@ source ~/autoware/install/setup.bash
 //////////MPC的檔案錄製
 ros2 run mpc_io_logger trigger_logger_mpc --algo mpc --truncate --dump-path /tmp/mpc_log.jsonl     or  
                mpc_log --dump-path ~/autoware/src/Algorithm/logs/mpc_$(date +%Y%m%d_%H%M%S).jsonl --truncate
+              ros2 run mpc_io_logger trigger_logger_mpc --algo mpc --truncate
+
 
 ////pp的檔案錄製
 ros2 run mpc_io_logger trigger_logger_pp --truncate --dump_path /tmp/pp_log.jsonl   or   
                pp_log --dump_path ~/autoware/src/Algorithm/logs/pp_$(date +%Y%m%d_%H%M%S).jsonl --truncate
+              ros2 run mpc_io_logger trigger_logger_pp --truncate --dump-path /tmp/pp_log.jsonl
+
 
 
 
