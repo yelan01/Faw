@@ -65,4 +65,53 @@ colcon build --packages-select autoware_launch --symlink-install
 source install/setup.bash
 
 
+
+
+
+
+
+
+
+
+//////////////////  使用 gedit ~/.bashrc & 
+
+
+              然後加入這些該死的玩意
+# Created by `pipx` on 2026-01-18 20:51:24
+export PATH="$PATH:/home/ye/.local/bin"
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CCACHE_DIR="$HOME/.ccache"
+export CC="/usr/lib/ccache/gcc"
+export CXX="/usr/lib/ccache/g++"
+export PATH="$HOME/autoware/src/Algorithm/bin:$PATH"
+
+
+# ===== Autoware environment helper =====
+aw_env() {
+  # ROS2 Humble
+  if [ -f /opt/ros/humble/setup.bash ]; then
+    source /opt/ros/humble/setup.bash
+  else
+    echo "[aw_env] not found: /opt/ros/humble/setup.bash"
+    return 1
+  fi
+
+  # Autoware (你的工作區)
+  if [ -f "$HOME/autoware/install/setup.bash" ]; then
+    source "$HOME/autoware/install/setup.bash"
+  else
+    echo "[aw_env] not found: $HOME/autoware/install/setup.bash"
+    echo "[aw_env] 你如果 Autoware 不在 ~/autoware，請改成正確路徑"
+    return 1
+  fi
+
+  return 0
+}
+
+# ===== Autoware planning_simulator shortcuts =====
+alias aw_sim_mpc='aw_env && ros2 launch autoware_launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/Shinjuku-Map/map data_path:=$HOME/autoware_data vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit lateral_controller_mode:=mpc'
+
+
+alias aw_sim_pp='aw_env && ros2 launch autoware_launch planning_simulator.launch.xml map_path:=$HOME/autoware_map/Shinjuku-Map/map data_path:=$HOME/autoware_data vehicle_model:=sample_vehicle sensor_model:=sample_sensor_kit lateral_controller_mode:=pure_pursuit'
+
                
