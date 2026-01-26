@@ -14,8 +14,9 @@ ros2 launch autoware_launch planning_simulator.launch.xml \
 
 ////////////////////////////////////////////////
 
-
-
+/////////////////看目前「起點 + 終點」///////////////
+ros2 topic echo --once /planning/mission_planning/route
+/////////////////////////////////////////////////
                
 ////////////////////////////確定那一種橫向控制器
 ros2 param get /control/trajectory_follower/controller_node_exe lateral_controller_mode
