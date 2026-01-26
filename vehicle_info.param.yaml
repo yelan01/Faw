@@ -1,0 +1,31 @@
+/**:
+  ros__parameters:
+    # --- From YDRE spec (units: [m], [rad]) ---
+    # Tire size: 18 x 8.50 - 8  => overall diameter ~18 in => radius ~0.2286 m
+    wheel_radius: 0.2286
+    wheel_width: 0.216  # 8.50 in ≈ 0.2159 m (rounded)
+
+    # Wheelbase: 64.6 in (1640 mm)
+    wheel_base: 1.64
+
+    # Tread: front 0.87 m, rear 0.98 m
+    # Autoware uses single wheel_tread, so we use the average to represent the vehicle.
+    wheel_tread: 0.925
+
+    # Overall length: 2.395 m => front_overhang + wheel_base + rear_overhang = 2.395
+    # total overhang = 2.395 - 1.64 = 0.755
+    # split using previous config ratio (front:rear ≈ 1.0:1.1) to keep similar bias
+    front_overhang: 0.36
+    rear_overhang: 0.395
+
+    # Overall width: 1.200 m => left_overhang + wheel_tread + right_overhang = 1.200
+    left_overhang: 0.1375
+    right_overhang: 0.1375
+
+    # Overall height: 1.190 m
+    vehicle_height: 1.19
+
+    # Minimum turning radius ≈ 2.9 m
+    # max_steer_angle ≈ atan(wheel_base / turning_radius) = atan(1.64/2.9) ≈ 0.515 rad
+    max_steer_angle: 0.515
+
