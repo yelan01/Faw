@@ -6,7 +6,6 @@
     use_delayed_initial_state: true 
 
     # -- path smoothing --
-    # 維持 15，這對急彎比較好
     enable_path_smoothing: true   
     path_filter_moving_ave_num: 15 
     curvature_smoothing_num_traj: 15        
@@ -17,14 +16,20 @@
 
     # -- mpc optimization --
     qp_solver_type: "osqp"                       
-    # [微調] 縮短一點預測步數，讓反應更直接，減少為了遠方平滑而導致眼前轉不過去的情況
-    mpc_prediction_horizon: 40                   
-    mpc_prediction_dt: 0.1                       
+    
+    # === [性能優化核心] ===
+    # 問題：改版二太慢，導致掉幀 (Max Latency > 100ms)。
+    # 原因：權重太嚴格，Solver 算不出來。
+    # 解法：大幅減少預測步數。
+    # 在 10km/h (2.78m/s) 下，看 3.75秒 (約10公尺) 已經非常足夠反應。
+    # 從 40 降到 25，運算量幾乎減半，能有效救回延遲。
+    mpc_prediction_horizon: 25                   
+    mpc_prediction_dt: 0.15                       
 
-    # === [關鍵修改 1] 抓緊路徑 ===
-    # 既然 steer_rate 不能動，我們必須讓「偏離路徑」的代價變得非常昂貴。
-    # 從 1.0 提升到 3.0。這會強迫車子寧願犧牲一點舒適度也要死死咬住內側線。
-    mpc_weight_lat_error: 3.0                    
+    # === [權重微調] ===
+    # 稍微放寬一點點側向誤差 (3.0 -> 2.5)，讓 Solver 更容易收斂，減少卡頓。
+    # 但 2.5 依然是很高的數值，防撞牆能力應該還在。
+    mpc_weight_lat_error: 2.5                    
     
     mpc_weight_heading_error: 1.0                
     mpc_weight_heading_error_squared_vel: 0.3    
@@ -36,13 +41,11 @@
     mpc_weight_steer_rate: 0.05                   
     mpc_weight_steer_acc:  0.00001               
     
-    # === [關鍵修改 2] 直線模式修正 ===
-    # 避免在入彎初期因為被判定為「低曲率」而太放鬆導致外拋
+    # === [直線模式] ===
     mpc_low_curvature_thresh_curvature: 0.02                    
     
-    # 從 0.1 提升到 0.5。直線時稍微允許誤差，但不能允許飄移。
+    # 直線模式保持嚴格，因為直線運算比較簡單，不太會卡頓
     mpc_low_curvature_weight_lat_error: 0.5                    
-    
     mpc_low_curvature_weight_heading_error: 2.0                
     mpc_low_curvature_weight_heading_error_squared_vel: 0.3    
     mpc_low_curvature_weight_steering_input: 1.0               
@@ -63,15 +66,11 @@
     input_delay: 0.24                
     vehicle_model_steer_tau: 0.27     
     
-    # === [關鍵修改 3] 放寬極速轉向限制 ===
-    # 為了避免在 10km/h (約3m/s) 時轉向不夠快導致撞牆
+    # === [速度與轉向限制] ===
+    # 維持改版二的設定，這對低速車是正確的
     steer_rate_lim_dps_list_by_curvature: [40.0, 50.0, 60.0]            
     curvature_list_for_steer_rate_lim: [0.01, 0.05, 0.1]              
     
-    # [修改] 提升高速端的允許轉速
-    # 1.0m/s -> 60 deg/s
-    # 2.0m/s -> 50 deg/s (原本 45)
-    # 3.0m/s -> 45 deg/s (原本 30) -> 這很重要，30可能太慢了，來不及閃牆壁
     steer_rate_lim_dps_list_by_velocity: [60.0, 50.0, 45.0]             
     velocity_list_for_steer_rate_lim: [1.0, 2.0, 3.0]                  
     
