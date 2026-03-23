@@ -1,0 +1,173 @@
+% =========================================================
+% 終極三合一分析程式：效能長條圖、軌跡地圖、Costmap動態播放
+% =========================================================
+clear; clc; close all;
+
+% =========================================================
+% 【請在這裡修改你的檔案名稱】
+% =========================================================
+csv_mpt_file = 'mpt_2.csv';        % MPT 的 CSV 檔案
+csv_geb_file = 'fast_geb_1.csv';   % Fast-GEB 的 CSV 檔案
+% 👇 換成你在 autoware 資料夾底下找到的 rosbag 資料夾名稱 👇
+bag_path = 'experiment_bag_fast_geb_1711234567'; 
+% 你想播放哪一個演算法的動態過程？(這裡以 fast_geb 為例)
+playback_csv = csv_geb_file;       
+
+% =========================================================
+% 1. 讀取與清洗 CSV 資料
+% =========================================================
+fprintf('正在載入 CSV 資料...\n');
+opts = detectImportOptions(csv_mpt_file);
+opts = setvartype(opts, 'Predicted_Path_Str', 'string');
+T_mpt = readtable(csv_mpt_file, opts);
+T_mpt = T_mpt(T_mpt.Time_us > 0, :);
+
+opts = detectImportOptions(csv_geb_file);
+opts = setvartype(opts, 'Predicted_Path_Str', 'string');
+T_geb = readtable(csv_geb_file, opts);
+T_geb = T_geb(T_geb.Time_us > 0, :);
+
+mean_time = [mean(T_mpt.Time_us); mean(T_geb.Time_us)];
+mean_smoothness = [mean(T_mpt.Smoothness_Cost); mean(T_geb.Smoothness_Cost)];
+
+% =========================================================
+% 視窗一：時間與平滑度的長條圖
+% =========================================================
+figure('Name', '視窗一：效能對比 (Performance Metrics)', 'Position', [100, 100, 900, 400]);
+tiledlayout(1, 2, 'TileSpacing', 'Compact', 'Padding', 'Compact');
+c_color = [0 0.4470 0.7410; 0.4660 0.6740 0.1880]; % 藍色與綠色
+
+% 左圖：時間 (對數座標)
+nexttile;
+b_time = bar(mean_time, 'FaceColor', 'flat');
+b_time.CData = c_color;
+set(gca, 'YScale', 'log'); % 對數座標，凸顯 130 倍的差異
+grid on;
+set(gca, 'xticklabel', {'MPT (官方)', 'Fast-GEB (你的)'}, 'FontSize', 12);
+ylabel('平均運算時間 (\mus) - 對數座標', 'FontSize', 12, 'FontWeight', 'bold');
+title('運算效率對比', 'FontSize', 14);
+text(1, mean_time(1), sprintf('%.1f \\mus', mean_time(1)), 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 11, 'FontWeight', 'bold');
+text(2, mean_time(2), sprintf('%.1f \\mus', mean_time(2)), 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 11, 'FontWeight', 'bold');
+
+% 右圖：平滑度
+nexttile;
+b_smooth = bar(mean_smoothness, 'FaceColor', 'flat');
+b_smooth.CData = c_color;
+grid on;
+set(gca, 'xticklabel', {'MPT (官方)', 'Fast-GEB (你的)'}, 'FontSize', 12);
+ylabel('平均平滑度成本 (越低越好)', 'FontSize', 12, 'FontWeight', 'bold');
+title('路徑平滑度對比', 'FontSize', 14);
+text(1, mean_smoothness(1), sprintf('%.6f', mean_smoothness(1)), 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 11, 'FontWeight', 'bold');
+text(2, mean_smoothness(2), sprintf('%.6f', mean_smoothness(2)), 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 11, 'FontWeight', 'bold');
+
+% =========================================================
+% 視窗二：X-Y 軌跡地圖
+% =========================================================
+figure('Name', '視窗二：實際行駛軌跡 (Trajectory Map)', 'Position', [150, 150, 700, 500]);
+hold on; grid on; axis equal;
+
+plot(T_mpt.Current_X, T_mpt.Current_Y, 'Color', [0 0.4470 0.7410], 'LineWidth', 2.5, 'DisplayName', 'MPT 軌跡');
+plot(T_geb.Current_X, T_geb.Current_Y, '--', 'Color', [0.4660 0.6740 0.1880], 'LineWidth', 2.5, 'DisplayName', 'Fast-GEB 軌跡');
+
+plot(T_mpt.Current_X(1), T_mpt.Current_Y(1), 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'y', 'DisplayName', '起點');
+plot(T_mpt.Current_X(end), T_mpt.Current_Y(end), 'kp', 'MarkerSize', 12, 'MarkerFaceColor', 'r', 'DisplayName', '終點');
+
+xlabel('X 座標 (m)', 'FontSize', 12, 'FontWeight', 'bold');
+ylabel('Y 座標 (m)', 'FontSize', 12, 'FontWeight', 'bold');
+title('車輛實際行駛軌跡對比 (X-Y Map)', 'FontSize', 14);
+legend('Location', 'best', 'FontSize', 11);
+
+% =========================================================
+% 視窗三：動態播放器 (Costmap + 預計路徑)
+% =========================================================
+fprintf('\n正在準備動態播放器...\n');
+try
+    fprintf('正在載入 Rosbag: %s (這可能需要幾十秒)...\n', bag_path);
+    bag = rosbag2(bag_path);
+    b_map = select(bag, 'Topic', '/perception/occupancy_grid_map/map');
+    msg_maps = readMessages(b_map);
+    
+    % 準備播放的 CSV 資料
+    if contains(playback_csv, 'fast_geb')
+        T_play = T_geb;
+    else
+        T_play = T_mpt;
+    end
+    T_play = T_play(~ismissing(T_play.Predicted_Path_Str), :);
+    
+    fig = figure('Name', ['視窗三：動態播放 - ' playback_csv], 'Position', [200, 200, 800, 600]);
+    ax = axes(fig);
+    hold on; axis equal; grid on;
+    colormap('gray'); 
+
+    h_car = plot(NaN, NaN, 'ro', 'MarkerSize', 10, 'MarkerFaceColor', 'r', 'LineWidth', 2, 'DisplayName', '車輛當前位置'); 
+    h_path = plot(NaN, NaN, 'Color', [0 1 0], 'LineWidth', 2.5, 'DisplayName', '演算法預計路徑'); 
+    legend('Location', 'northeast');
+
+    ht = title('準備播放...', 'FontSize', 14);
+    xlabel('X 座標 (m)'); ylabel('Y 座標 (m)');
+
+    fprintf('開始播放！請查看跳出的第三個視窗。\n');
+    csv_row_ptr = 1; 
+
+    for i = 1:length(msg_maps)
+        if ~ishandle(fig), break; end % 如果手動關閉視窗就停止
+        
+        curr_map_msg = msg_maps{i};
+        map_ts = double(curr_map_msg.header.stamp.sec) + double(curr_map_msg.header.stamp.nanosec) * 1e-9;
+        
+        % 時間對齊：在 CSV 裡尋找最接近地圖時間戳記的資料
+        while csv_row_ptr < height(T_play) && T_play.Timestamp(csv_row_ptr) < map_ts
+            csv_row_ptr = csv_row_ptr + 1;
+        end
+        curr_data = T_play(csv_row_ptr, :);
+        
+        % 解析路徑矩陣
+        pred_path_matrix = parse_path_string(curr_data.Predicted_Path_Str);
+        
+        % 更新畫面
+        show(curr_map_msg, 'Parent', ax); 
+        hold(ax, 'on'); 
+        
+        set(h_car, 'XData', curr_data.Current_X, 'YData', curr_data.Current_Y);
+        if ~isempty(pred_path_matrix)
+            set(h_path, 'XData', pred_path_matrix(:,1), 'YData', pred_path_matrix(:,2));
+        end
+        
+        set(ht, 'String', sprintf('Time: %.1f s | Algo: %s | 運算時間: %d \\mus | 平滑度: %.4f', ...
+            map_ts - double(msg_maps{1}.header.stamp.sec), curr_data.Algorithm{1}, curr_data.Time_us, curr_data.Smoothness_Cost));
+        
+        drawnow limitrate; 
+        pause(0.05); 
+    end
+    fprintf('播放結束。\n');
+    
+catch e
+    fprintf('⚠️ 無法播放 Costmap，請確認 MATLAB 有安裝 ROS Toolbox，且 bag_path 資料夾名稱與路徑正確。\n');
+    fprintf('錯誤訊息: %s\n', e.message);
+end
+
+% =========================================================
+% 輔助函數：解析路徑字串 (必須放在腳本最底下)
+% =========================================================
+function path_matrix = parse_path_string(path_str)
+    path_matrix = [];
+    if ismissing(path_str) || strlength(path_str) == 0
+        return;
+    end
+    point_strs = split(path_str, '|');
+    num_points = length(point_strs);
+    path_matrix = zeros(num_points, 2);
+    
+    for i = 1:num_points
+        try
+            xy_str = split(point_strs(i), ':');
+            if length(xy_str) == 2
+                path_matrix(i, 1) = str2double(xy_str(1));
+                path_matrix(i, 2) = str2double(xy_str(2));
+            end
+        catch
+            continue; 
+        end
+    end
+end
